@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GenAI Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background: #111;
+      color: white;
+      padding: 20px;
+    }
+
+    .card {
+      background-color: #222;
+      margin-bottom: 30px;
+    }
+
+    .card-header {
+      background-color: #333;
+      font-weight: bold;
+      color: #ddd;
+    }
+
+    input, select {
+      background-color: #444;
+      color: #fff;
+    }
+
+    .table thead {
+      background-color: #555;
+      color: white;
+    }
+
+    .table tbody td {
+      background-color: #2a2a2a;
+      color: white;
+    }
+
+    .btn {
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2 class="mb-4">🎯 GenAI Exam Generator Dashboard</h2>
+
+  <div class="card">
+    <div class="card-header">1️⃣ Manual Generate Exam</div>
+    <div class="card-body">
+      <form id="examForm">
+        <div class="row g-3">
+          <div class="col-md-2"><input type="text" class="form-control" placeholder="Subject" id="subject" required /></div>
+          <div class="col-md-2"><input type="text" class="form-control" placeholder="Grade" id="gradeLevel" required /></div>
+          <div class="col-md-2"><input type="text" class="form-control" placeholder="Exam Type" id="examType" required /></div>
+          <div class="col-md-2"><input type="text" class="form-control" placeholder="Difficulty" id="difficulty" required /></div>
+          <div class="col-md-4"><input type="text" class="form-control" placeholder="Topics (comma separated)" id="topics" required /></div>
+          <div class="col-md-2"><input type="number" class="form-control" placeholder="1 Mark Count" id="marks1" required /></div>
+          <div class="col-md-2"><input type="number" class="form-control" placeholder="2 Mark Count" id="marks2" required /></div>
+          <div class="col-md-2"><input type="number" class="form-control" placeholder="5 Mark Count" id="marks5" required /></div>
+          <div class="col-md-2">
+            <button type="submit" id="generateBtn" class="btn btn-primary w-100">Generate</button>
+            <span id="generateTimer" class="text-warning fw-bold"></span>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">2️⃣ Upload Unit PDF</div>
+    <div class="card-body">
+      <form id="pdfForm" enctype="multipart/form-data">
+        <div class="row g-3">
+          <div class="col-md-4"><input type="file" class="form-control" id="unitPdf" accept="application/pdf" required /></div>
+          <div class="col-md-2"><input type="number" class="form-control" id="pdfMarks1" placeholder="1 Mark Count" required /></div>
+          <div class="col-md-2"><input type="number" class="form-control" id="pdfMarks2" placeholder="2 Mark Count" required /></div>
+          <div class="col-md-2"><input type="number" class="form-control" id="pdfMarks5" placeholder="5 Mark Count" required /></div>
+          <div class="col-md-2">
+            <button type="submit" class="btn btn-success w-100" id="uploadBtn">Upload</button>
+            <span id="uploadTimer" class="text-warning fw-bold"></span>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">3️⃣ Exam History</div>
+    <div class="card-body">
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Subject</th>
+            <th>Grade</th>
+            <th>Type</th>
+            <th>Date</th>
+            <th>PDF</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const email = sessionStorage.getItem("userEmail");
+
+    if (!email) {
+      alert("⚠️ Please login first!");
+      window.location.href = "login.html";
+    }
+
+    function startTimer(duration, displayId, buttonId) {
+      let timer = duration;
+      const display = document.getElementById(displayId);
+      const button = document.getElementById(buttonId);
+      button.disabled = true;
+
+      const interval = setInterval(() => {
+        display.textContent = `Wait: ${timer}s`;
+        timer--;
+
+        if (timer < 0) {
+          clearInterval(interval);
+          display.textContent = "";
+          button.disabled = false;
+        }
+      }, 1000);
+    }
+
+    document.getElementById("examForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      startTimer(60, "generateTimer", "generateBtn");
+
+      const examData = {
+        email,
+        subject: document.getElementById("subject").value,
+        gradeLevel: document.getElementById("gradeLevel").value,
+        examType: document.getElementById("examType").value,
+        difficulty: document.getElementById("difficulty").value,
+        topics: document.getElementById("topics").value.split(",").map(t => t.trim()),
+        marks1: parseInt(document.getElementById("marks1").value),
+        marks2: parseInt(document.getElementById("marks2").value),
+        marks5: parseInt(document.getElementById("marks5").value)
+      };
+
+      fetch("http://localhost:8080/api/exams/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(examData)
+      })
+      .then(res => res.json())
+      .then(() => {
+        alert("✅ Exam Generated!");
+        loadHistory();
+      })
+      .catch(err => {
+        console.error("❌ Error generating:", err);
+        alert("❌ Failed to generate exam.");
+      });
+    });
+
+    document.getElementById("pdfForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      startTimer(60, "uploadTimer", "uploadBtn");
+
+      const fileInput = document.getElementById("unitPdf");
+      if (!fileInput.files[0]) {
+        alert("❌ Please upload a PDF.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      formData.append("marks1", document.getElementById("pdfMarks1").value);
+      formData.append("marks2", document.getElementById("pdfMarks2").value);
+      formData.append("marks5", document.getElementById("pdfMarks5").value);
+      formData.append("email", email);
+
+      fetch("http://localhost:8080/api/exams/upload-unit", {
+        method: "POST",
+        body: formData
+      })
+      .then(res => res.text())
+      .then(msg => {
+        alert(msg);
+        loadHistory();
+      })
+      .catch(err => {
+        console.error("❌ Upload error:", err);
+        alert("❌ PDF Upload failed.");
+      });
+    });
+
+    function loadHistory() {
+      fetch(`http://localhost:8080/api/exams/user/history?email=${email}`)
+        .then(res => res.json())
+        .then(data => {
+          const tbody = document.getElementById("historyTableBody");
+          tbody.innerHTML = "";
+          (Array.isArray(data) ? data : []).forEach(exam => {
+            const row = `
+              <tr>
+                <td>${exam.id}</td>
+                <td>${exam.subject}</td>
+                <td>${exam.gradeLevel}</td>
+                <td>${exam.examType}</td>
+                <td>${new Date(exam.createdAt).toLocaleString()}</td>
+                <td><a class="btn btn-sm btn-outline-light" href="http://localhost:8080/api/exams/${exam.id}/pdf" target="_blank">Download</a></td>
+              </tr>`;
+            tbody.innerHTML += row;
+          });
+        })
+        .catch(err => {
+          console.error("❌ History fetch failed:", err);
+          alert("❌ Could not load history.");
+        });
+    }
+
+    window.onload = loadHistory;
+  </script>
+</body>
+</html>

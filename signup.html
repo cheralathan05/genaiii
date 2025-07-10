@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Sign Up</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #020202, #4d4e4e);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+    }
+
+    .form-container {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(15px);
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      padding: 40px 30px;
+      width: 90%;
+      max-width: 400px;
+      animation: fadeIn 0.6s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h2 {
+      margin-bottom: 25px;
+      font-weight: bold;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 10px;
+      border: none;
+      font-size: 16px;
+    }
+
+    input {
+      background-color: rgba(255, 255, 255, 0.9);
+      color: #000;
+      outline: none;
+      transition: 0.3s;
+    }
+
+    input:focus {
+      box-shadow: 0 0 0 3px rgba(37,117,252,0.3);
+    }
+
+    button {
+      background-color: #2575fc;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    button:hover:enabled {
+      background-color: #303030;
+    }
+
+    #msg {
+      font-size: 14px;
+      margin-top: 5px;
+      font-weight: bold;
+    }
+
+    .switch-btn {
+      background: none;
+      color: #fff;
+      text-decoration: underline;
+      cursor: pointer;
+      border: none;
+      font-size: 15px;
+      margin-top: 15px;
+    }
+
+    #otpSection {
+      display: none;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 500px) {
+      .form-container {
+        padding: 30px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="form-container">
+    <h2>Sign Up</h2>
+
+    <form id="signupForm">
+      <input type="text" id="name" placeholder="Full Name" required><br>
+      <input type="email" id="email" placeholder="Email" required><br>
+      <input type="password" id="password" placeholder="Password" required><br>
+      <button type="button" id="sendOtpBtn" onclick="sendOtp()">Send OTP</button>
+    </form>
+
+    <div id="otpSection">
+      <input type="text" id="otpCode" placeholder="Enter OTP"><br>
+      <button onclick="verifyOtp()">Verify & Sign Up</button>
+    </div>
+
+    <p id="msg"></p>
+    <button class="switch-btn" onclick="goToLogin()">⬅️ Back to Login</button>
+  </div>
+
+  <script>
+    let signupData = {};
+
+    function sendOtp() {
+      const name = document.getElementById("name").value;
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const btn = document.getElementById("sendOtpBtn");
+
+      if (!name || !email || !password) {
+        document.getElementById("msg").innerText = "⚠️ All fields are required.";
+        return;
+      }
+
+      signupData = { name, email, password };
+
+      // Disable the button and start 30-second countdown
+      btn.disabled = true;
+      let seconds = 30;
+      btn.innerText = `Wait ${seconds}s`;
+      const timer = setInterval(() => {
+        seconds--;
+        btn.innerText = `Wait ${seconds}s`;
+        if (seconds <= 0) {
+          clearInterval(timer);
+          btn.disabled = false;
+          btn.innerText = "Send OTP";
+        }
+      }, 1000);
+
+      fetch("http://localhost:8080/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(signupData)
+      })
+      .then(res => res.text())
+      .then(msg => {
+        document.getElementById("msg").style.color = "lightgreen";
+        document.getElementById("msg").innerText = msg;
+        document.getElementById("otpSection").style.display = "block";
+      })
+      .catch(() => {
+        document.getElementById("msg").style.color = "red";
+        document.getElementById("msg").innerText = "⚠️ Failed to send OTP.";
+      });
+    }
+
+    function verifyOtp() {
+      const code = document.getElementById("otpCode").value;
+
+      if (!code) {
+        document.getElementById("msg").innerText = "⚠️ Enter OTP first.";
+        return;
+      }
+
+      fetch("http://localhost:8080/auth/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: signupData.email, code })
+      })
+      .then(res => res.text())
+      .then(msg => {
+        if (msg.toLowerCase().includes("success")) {
+          alert("✅ Email verified! Redirecting to login page...");
+          window.location.href = "login.html";
+        } else {
+          document.getElementById("msg").style.color = "red";
+          document.getElementById("msg").innerText = "❌ " + msg;
+        }
+      })
+      .catch(() => {
+        document.getElementById("msg").style.color = "red";
+        document.getElementById("msg").innerText = "❌ Verification failed.";
+      });
+    }
+
+    function goToLogin() {
+      window.location.href = "login.html";
+    }
+  </script>
+
+</body>
+</html>

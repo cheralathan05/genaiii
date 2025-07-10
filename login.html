@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login Page with Spline</title>
+
+  <!-- ✅ Spline Viewer -->
+ 
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #020202, #4d4e4e);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: 'Segoe UI', sans-serif;
+      overflow: hidden;
+    }
+
+    spline-viewer {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #000;
+      color: white;
+    }
+
+    .form-container {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(12px);
+      padding: 40px 30px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 380px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border: none;
+      font-size: 15px;
+    }
+
+    input {
+      background: rgba(255, 255, 255, 0.95);
+      color: #000;
+    }
+
+    button {
+      background-color: #2575fc;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #1b5edb;
+    }
+
+    #msg {
+      font-size: 14px;
+      text-align: center;
+      margin-top: 8px;
+      font-weight: bold;
+    }
+
+    .switch-btn {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 14px;
+      text-decoration: underline;
+      margin-top: 12px;
+      cursor: pointer;
+      display: block;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ✅ Spline background -->
+  <spline-viewer url="https://prod.spline.design/0lRLZDfbQ-5b7IP3/scene.splinecode"></spline-viewer>
+
+  <!-- ✅ Login Box -->
+  <div class="form-container">
+    <h2>Login</h2>
+    <form id="loginForm">
+      <input type="email" id="email" placeholder="Email" required />
+      <input type="password" id="password" placeholder="Password" required />
+      <button type="button" id="sendOtpBtn" onclick="sendOtp()">Send OTP</button>
+      <input type="text" id="code" placeholder="Enter OTP Code" required />
+      <button type="button" onclick="login()">Login</button>
+      <p id="msg"></p>
+      <button type="button" class="switch-btn" onclick="goToSignUp()">➡️ Go to Sign Up</button>
+    </form>
+  </div>
+
+  <script>
+    let loginData = {};
+
+    function sendOtp() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const btn = document.getElementById("sendOtpBtn");
+
+      if (!email || !password) {
+        document.getElementById("msg").innerText = "⚠️ Email and password are required.";
+        return;
+      }
+
+      if (!email.includes("@") || !email.includes(".")) {
+        document.getElementById("msg").innerText = "⚠️ This is a wrong email.";
+        return;
+      }
+
+      btn.disabled = true;
+      let seconds = 30;
+      btn.innerText = `Wait ${seconds}s`;
+
+      const timer = setInterval(() => {
+        seconds--;
+        btn.innerText = `Wait ${seconds}s`;
+        if (seconds <= 0) {
+          clearInterval(timer);
+          btn.disabled = false;
+          btn.innerText = "Send OTP";
+        }
+      }, 1000);
+
+      fetch("http://localhost:8080/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      })
+      .then(res => res.text())
+      .then(msg => {
+        if (msg.toLowerCase().includes("otp")) {
+          document.getElementById("msg").style.color = "lightgreen";
+          document.getElementById("msg").innerText = msg;
+          loginData.email = email;
+          loginData.password = password;
+        } else {
+          document.getElementById("msg").style.color = "orange";
+          document.getElementById("msg").innerText = msg;
+        }
+      })
+      .catch(() => {
+        document.getElementById("msg").innerText = "❌ Failed to send OTP.";
+      });
+    }
+
+    function login() {
+      const code = document.getElementById("code").value;
+      if (!loginData.email || !loginData.password || !code) {
+        document.getElementById("msg").innerText = "⚠️ All fields are required.";
+        return;
+      }
+
+      fetch("http://localhost:8080/auth/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginData.email, code })
+      })
+      .then(res => res.text())
+      .then(msg => {
+        if (msg.toLowerCase().includes("success")) {
+          alert("✅ Login successful!");
+          sessionStorage.setItem("userEmail", loginData.email);
+          sessionStorage.setItem("userName", "User");
+          window.location.href = "dashboard.html";
+        } else {
+          document.getElementById("msg").style.color = "red";
+          document.getElementById("msg").innerText = "❌ " + msg;
+        }
+      })
+      .catch(() => {
+        document.getElementById("msg").innerText = "❌ Login failed.";
+      });
+    }
+
+    function goToSignUp() {
+      window.location.href = "signup.html";
+    }
+  </script>
+
+</body>
+</html>
